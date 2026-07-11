@@ -77,6 +77,17 @@ function runShellCommand(cmd, logCallback) {
   });
 }
 
+function getAudioDuration(filePath) {
+  return new Promise((resolve, reject) => {
+    exec(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`, (err, stdout, stderr) => {
+      if (err) return reject(err);
+      const duration = parseFloat(stdout.trim());
+      if (isNaN(duration)) return reject(new Error("Failed to parse duration"));
+      resolve(duration);
+    });
+  });
+}
+
 // Check if a port is open
 function checkPort(port) {
   return new Promise((resolve) => {
@@ -336,9 +347,13 @@ app.post('/api/simple-swap', upload.fields([
         }
 
         // Step 4: Loop/Trim Video to Audio Length
-        pushLog(`[FFmpeg] Loop template video to match speech length...`);
+        pushLog(`[FFmpeg] Analyzing speech audio duration...`);
+        const duration = await getAudioDuration(speechAudioPath);
+        pushLog(`[System] Speech audio duration: ${duration} seconds.`);
+        
+        pushLog(`[FFmpeg] Looping template video to exact speech length...`);
         const loopedVideoPath = path.join(uploadsDir, `loop_${taskId}.mp4`);
-        const loopCmd = `ffmpeg -y -stream_loop -1 -i "${baseTargetVideoPath}" -i "${speechAudioPath}" -shortest -c:v libx264 -pix_fmt yuv420p -an "${loopedVideoPath}"`;
+        const loopCmd = `ffmpeg -y -stream_loop -1 -i "${baseTargetVideoPath}" -t ${duration} -c:v libx264 -pix_fmt yuv420p -an "${loopedVideoPath}"`;
         await runShellCommand(loopCmd, pushLog);
 
         // Step 5: FaceFusion Lip Syncer (Lip Sync looped video to speech audio)
