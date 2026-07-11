@@ -41,6 +41,8 @@ def format_timestamp(seconds):
     millis = int((seconds % 1) * 1000)
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
+import shutil
+
 def burn_subtitles(video_path, srt_path, output_path):
     print(f"Burning subtitles from {srt_path} onto {video_path}...")
     
@@ -54,13 +56,28 @@ def burn_subtitles(video_path, srt_path, output_path):
     cmd = [
         'ffmpeg', '-y',
         '-i', video_path,
-        '-vf', f"subtitles='{escaped_srt}':force_style='{style}'",
+        '-vf', f"subtitles={escaped_srt}:force_style='{style}'",
         '-c:a', 'copy',
         output_path
     ]
     
-    subprocess.run(cmd, check=True)
-    print("Subtitles burned successfully.")
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        print("Subtitles burned successfully.")
+        return True
+    except subprocess.CalledProcessError as e:
+        stderr_msg = e.stderr or ""
+        print(f"[Subtitles Warning] FFmpeg subtitle burning failed. Output: {stderr_msg}")
+        if "No such filter" in stderr_msg or "Filter not found" in stderr_msg:
+            print("[Subtitles Warning] Your local FFmpeg binary was compiled without 'subtitles' filter support (requires libass).")
+        print("Copying original video without burned captions as fallback...")
+        try:
+            shutil.copy(video_path, output_path)
+            print("Successfully copied original video to output path.")
+            return True
+        except Exception as copy_err:
+            print(f"Failed to copy fallback video: {copy_err}")
+            return False
 
 if __name__ == "__main__":
     if len(sys.argv) < 5:
@@ -84,7 +101,9 @@ if __name__ == "__main__":
     generate_srt(segments, duration, srt_path)
     
     try:
-        burn_subtitles(video_path, srt_path, output_path)
+        success = burn_subtitles(video_path, srt_path, output_path)
+        if not success:
+            sys.exit(1)
     finally:
         # Clean up srt file
         if os.path.exists(srt_path):
