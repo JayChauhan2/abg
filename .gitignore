@@ -12,3 +12,6 @@ dashboard/public/outputs/
 # Ignore macOS files
 .DS_Store
 *.log
+
+# Ignore heavy model weights
+dashboard/models/

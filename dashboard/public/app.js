@@ -42,6 +42,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Bind Auto-Subtitles Switch listener
+    const toggleBurn = document.getElementById('toggle-burn-subtitles');
+    const burnStatusText = document.getElementById('burn-subtitles-status');
+    if (toggleBurn && burnStatusText) {
+        toggleBurn.addEventListener('change', () => {
+            if (toggleBurn.checked) {
+                burnStatusText.textContent = "Enabled (Burned)";
+                burnStatusText.style.color = "var(--text-main)";
+            } else {
+                burnStatusText.textContent = "Disabled";
+                burnStatusText.style.color = "var(--text-muted)";
+            }
+        });
+    }
 });
 
 // Switch view mode (Dashboard vs Face Swap)
@@ -275,6 +290,7 @@ function setInputType(type) {
         scriptBtn.classList.remove('active');
         targetCard.classList.remove('hidden');
         scriptCard.classList.add('hidden');
+        document.getElementById('avatar-prompt-container').classList.add('hidden');
 
         // Adjust Source card labeling
         sourceTitle.textContent = swapMode === 'face' ? "Source Face (Girl Image)" : "Source Portrait (Static Girl Photo)";
@@ -284,6 +300,7 @@ function setInputType(type) {
         scriptBtn.classList.add('active');
         targetCard.classList.add('hidden');
         scriptCard.classList.remove('hidden');
+        document.getElementById('avatar-prompt-container').classList.remove('hidden');
 
         // Adjust Source card labeling to show optionality
         sourceTitle.textContent = "Target Avatar Photo (Optional)";
@@ -468,11 +485,18 @@ async function startSimpleSwap() {
     const faceEnhanceToggle = document.getElementById('toggle-face-enhance');
     const faceEnhanceVal = faceEnhanceToggle ? faceEnhanceToggle.checked : false;
 
+    const burnSubtitlesToggle = document.getElementById('toggle-burn-subtitles');
+    const burnSubtitlesVal = burnSubtitlesToggle ? burnSubtitlesToggle.checked : false;
+
+    const avatarPromptVal = document.getElementById('input-avatar-prompt').value.trim();
+
     formData.append('inputType', inputType);
     formData.append('scriptText', scriptVal);
     formData.append('mode', swapMode);
     formData.append('voiceModel', voiceModelSelect.value);
     formData.append('faceEnhance', faceEnhanceVal);
+    formData.append('burnSubtitles', burnSubtitlesVal);
+    formData.append('avatarPrompt', avatarPromptVal);
 
     try {
         const response = await fetch('/api/simple-swap', {

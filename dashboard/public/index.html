@@ -213,6 +213,14 @@
                                 <button class="remove-btn" onclick="removeFile('source', event)"><i class="fa-solid fa-times"></i></button>
                             </div>
                         </div>
+                        
+                        <!-- AI Avatar Prompt Input -->
+                        <div class="avatar-prompt-container hidden" id="avatar-prompt-container" style="margin-top: 15px; text-align: left;">
+                            <label class="setting-label" style="font-size: 0.85rem; margin-bottom: 6px; display: block; color: var(--text-muted);">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Or Generate Face with AI Prompt
+                            </label>
+                            <input type="text" id="input-avatar-prompt" class="prompt-input" placeholder="e.g. A gorgeous 22yo girl with red hair, smiling at camera, photorealistic, 8k" style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: var(--text-main); font-size: 0.85rem; outline: none; transition: var(--transition-smooth);">
+                        </div>
                     </div>
 
                     <!-- Dropzone 2: Target Video -->
@@ -293,6 +301,20 @@
                                 <span class="switch-slider"></span>
                             </label>
                             <span class="switch-status-text" id="face-enhance-status">Enabled (GFPGAN)</span>
+                        </div>
+                    </div>
+
+                    <!-- Auto-Subtitles Settings -->
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <i class="fa-solid fa-closed-captioning"></i> Auto-Subtitles
+                        </label>
+                        <div class="switch-wrapper">
+                            <label class="switch-container">
+                                <input type="checkbox" id="toggle-burn-subtitles" checked>
+                                <span class="switch-slider"></span>
+                            </label>
+                            <span class="switch-status-text" id="burn-subtitles-status">Enabled (Burned)</span>
                         </div>
                     </div>
                 </div>

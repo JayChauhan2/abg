@@ -257,6 +257,8 @@ app.post('/api/simple-swap', upload.fields([
   const inputType = req.body.inputType || 'video'; // 'video' or 'script'
   const scriptText = req.body.scriptText || '';
   const faceEnhance = req.body.faceEnhance === 'true';
+  const burnSubtitles = req.body.burnSubtitles === 'true';
+  const avatarPrompt = req.body.avatarPrompt || '';
 
   if (inputType === 'video' && !targetFile) {
     return res.status(400).json({ error: "Missing target video file for Video Reference mode." });
@@ -276,7 +278,9 @@ app.post('/api/simple-swap', upload.fields([
       `[System] Task ID: ${taskId}`,
       `[System] Input Type: ${inputType === 'video' ? 'Video Reference' : 'Text Script'}`,
       `[System] Voice Cloning Model: ${voiceModel || 'None'}`,
-      `[System] Face Enhancement (HD): ${faceEnhance ? 'Enabled (GFPGAN)' : 'Disabled'}`
+      `[System] Face Enhancement (HD): ${faceEnhance ? 'Enabled (GFPGAN)' : 'Disabled'}`,
+      `[System] Auto-Subtitles: ${burnSubtitles ? 'Enabled' : 'Disabled'}`,
+      `[System] AI Avatar Prompt: ${avatarPrompt || 'None'}`
     ],
     outputUrl: null,
     error: null
@@ -293,12 +297,27 @@ app.post('/api/simple-swap', upload.fields([
 
     let sourcePath = sourceFile ? sourceFile.path : '';
     let targetPath = targetFile ? targetFile.path : '';
+    let generatedAvatarPath = '';
 
     try {
       if (inputType === 'script') {
         // ==========================================
         // PIPELINE B: TEXT SCRIPT INPUT
         // ==========================================
+        
+        // Step 0: Generate Custom Avatar Image via Stable Diffusion if prompt is provided and no file uploaded
+        if (!sourcePath && avatarPrompt) {
+          pushLog(`[Stable Diffusion] Generating custom avatar portrait for prompt: "${avatarPrompt}"...`);
+          generatedAvatarPath = path.join(uploadsDir, `avatar_${taskId}.jpg`);
+          const sdCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && python "${path.join(__dirname, 'generate_avatar.py')}" "${avatarPrompt.replace(/"/g, '\\"')}" "${generatedAvatarPath}"`;
+          await runShellCommand(sdCmd, pushLog);
+          if (fs.existsSync(generatedAvatarPath)) {
+            sourcePath = generatedAvatarPath;
+            pushLog(`[Stable Diffusion] Custom avatar generated successfully.`);
+          } else {
+            pushLog(`[Stable Diffusion Warning] Failed to generate custom avatar. Falling back to default avatar...`);
+          }
+        }
         
         // Step 1: Text-to-Speech (TTS)
         pushLog(`[TTS] Generating speech audio from script...`);
@@ -365,15 +384,38 @@ app.post('/api/simple-swap', upload.fields([
         await runShellCommand(ffCmd, pushLog);
         pushLog(`[FaceFusion] Lip sync completed successfully.`);
 
+        // Step 6: Burn Subtitles (Optional)
+        const scriptTxtPath = path.join(uploadsDir, `script_${taskId}.txt`);
+        if (burnSubtitles) {
+          pushLog(`[Subtitles] Writing temporary script text file...`);
+          fs.writeFileSync(scriptTxtPath, scriptText, 'utf8');
+          pushLog(`[Subtitles] Burning styled captions onto video...`);
+          const tempSubtitledPath = path.join(outputsDir, `subtitled_${finalOutputFilename}`);
+          const subtitleCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && python "${path.join(__dirname, 'burn_subtitles.py')}" "${finalOutputPath}" "${scriptTxtPath}" ${duration} "${tempSubtitledPath}"`;
+          await runShellCommand(subtitleCmd, pushLog);
+          if (fs.existsSync(tempSubtitledPath)) {
+            fs.renameSync(tempSubtitledPath, finalOutputPath);
+            pushLog(`[Subtitles] Subtitles burned successfully.`);
+          } else {
+            pushLog(`[Subtitles Warning] Subtitled output file was not found.`);
+          }
+        }
+
         // Clean up uploads
         try {
           if (fs.existsSync(ttsWav)) fs.unlinkSync(ttsWav);
           const convertedWav = path.join(uploadsDir, `converted_${taskId}.wav`);
           if (fs.existsSync(convertedWav)) fs.unlinkSync(convertedWav);
           if (fs.existsSync(loopedVideoPath)) fs.unlinkSync(loopedVideoPath);
-          if (sourcePath && fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath);
-          if (sourcePath) {
-            const lpTempDir = path.join(uploadsDir, `lp_base_${taskId}`);
+          if (fs.existsSync(scriptTxtPath)) fs.unlinkSync(scriptTxtPath);
+          if (sourcePath && fs.existsSync(sourcePath) && sourcePath === generatedAvatarPath) {
+            fs.unlinkSync(sourcePath);
+          }
+          if (generatedAvatarPath && fs.existsSync(generatedAvatarPath)) {
+            fs.unlinkSync(generatedAvatarPath);
+          }
+          const lpTempDir = path.join(uploadsDir, `lp_base_${taskId}`);
+          if (fs.existsSync(lpTempDir)) {
             fs.rmSync(lpTempDir, { recursive: true, force: true });
           }
         } catch (e) {
@@ -489,7 +531,8 @@ app.post('/api/simple-swap', upload.fields([
       pushLog(`[System Error] Pipeline failed: ${err.message}`);
       
       try {
-        if (sourcePath && fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath);
+        if (sourcePath && fs.existsSync(sourcePath) && sourcePath === generatedAvatarPath) fs.unlinkSync(sourcePath);
+        if (generatedAvatarPath && fs.existsSync(generatedAvatarPath)) fs.unlinkSync(generatedAvatarPath);
         if (targetPath && fs.existsSync(targetPath)) fs.unlinkSync(targetPath);
       } catch (e) {}
     }

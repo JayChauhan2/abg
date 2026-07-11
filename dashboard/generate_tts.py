@@ -4,13 +4,35 @@ import os
 
 def generate_tts(text, output_wav_path):
     print(f"Generating TTS for text: {text}")
+    
+    # 1. Try to use Kokoro-ONNX (Pro-grade local offline TTS)
     try:
-        # Try to use gtts (requires internet but high quality)
+        from kokoro_onnx import Kokoro
+        import soundfile as sf
+        
+        script_dir = os.path.dirname(__file__)
+        model_path = os.path.join(script_dir, "models", "kokoro", "kokoro-v1.0.onnx")
+        voices_path = os.path.join(script_dir, "models", "kokoro", "voices-v1.0.bin")
+        
+        if os.path.exists(model_path) and os.path.exists(voices_path):
+            print("Using Kokoro-ONNX local studio-grade TTS...")
+            kokoro = Kokoro(model_path, voices_path)
+            # af_sarah is a beautiful female speaker voice
+            samples, sample_rate = kokoro.create(text, voice="af_sarah", speed=1.0, lang="en-us")
+            sf.write(output_wav_path, samples, sample_rate)
+            print("TTS generated successfully using local Kokoro-ONNX.")
+            return True
+        else:
+            print("Kokoro model files not found. Falling back to online/offline alternatives...")
+    except Exception as e:
+        print(f"Kokoro-ONNX failed or not installed (Error: {e}). Trying other paths...")
+
+    # 2. Try to use gtts (requires internet but high quality)
+    try:
         from gtts import gTTS
         tts = gTTS(text=text, lang='en')
         temp_mp3 = output_wav_path.replace('.wav', '.mp3')
         tts.save(temp_mp3)
-        # Convert mp3 to wav via ffmpeg
         subprocess.run(['ffmpeg', '-y', '-i', temp_mp3, '-acodec', 'pcm_s16le', '-ar', '24000', '-ac', '1', output_wav_path], check=True)
         if os.path.exists(temp_mp3):
             os.remove(temp_mp3)
@@ -19,12 +41,10 @@ def generate_tts(text, output_wav_path):
     except Exception as e:
         print(f"gTTS failed or not installed (Error: {e}). Falling back to local macOS 'say'...")
         
+    # 3. Fallback: macOS native 'say' command (100% offline, local)
     try:
-        # Fallback: macOS native 'say' command (100% offline, local)
         temp_aiff = output_wav_path.replace('.wav', '.aiff')
-        # Use a nice female voice like 'Samantha' or 'Ava' if available, otherwise default
         subprocess.run(['say', '-v', 'Samantha', '-o', temp_aiff, text], check=True)
-        # Convert aiff to wav via ffmpeg
         subprocess.run(['ffmpeg', '-y', '-i', temp_aiff, '-acodec', 'pcm_s16le', '-ar', '24000', '-ac', '1', output_wav_path], check=True)
         if os.path.exists(temp_aiff):
             os.remove(temp_aiff)
