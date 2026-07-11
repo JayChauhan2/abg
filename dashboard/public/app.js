@@ -27,6 +27,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Bind Dropzone Event Listeners
     setupDropzone('source', 'input-source', 'area-source', 'preview-source');
     setupDropzone('target', 'input-target', 'area-target', 'preview-target');
+
+    // Bind Face Enhancement Switch listener
+    const toggleEnhance = document.getElementById('toggle-face-enhance');
+    const statusText = document.getElementById('face-enhance-status');
+    if (toggleEnhance && statusText) {
+        toggleEnhance.addEventListener('change', () => {
+            if (toggleEnhance.checked) {
+                statusText.textContent = "Enabled (GFPGAN)";
+                statusText.style.color = "var(--text-main)";
+            } else {
+                statusText.textContent = "Disabled";
+                statusText.style.color = "var(--text-muted)";
+            }
+        });
+    }
 });
 
 // Switch view mode (Dashboard vs Face Swap)
@@ -450,10 +465,14 @@ async function startSimpleSwap() {
     if (sourceFileObj) formData.append('source', sourceFileObj);
     if (targetFileObj) formData.append('target', targetFileObj);
     
+    const faceEnhanceToggle = document.getElementById('toggle-face-enhance');
+    const faceEnhanceVal = faceEnhanceToggle ? faceEnhanceToggle.checked : false;
+
     formData.append('inputType', inputType);
     formData.append('scriptText', scriptVal);
     formData.append('mode', swapMode);
     formData.append('voiceModel', voiceModelSelect.value);
+    formData.append('faceEnhance', faceEnhanceVal);
 
     try {
         const response = await fetch('/api/simple-swap', {

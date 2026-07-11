@@ -256,6 +256,7 @@ app.post('/api/simple-swap', upload.fields([
   
   const inputType = req.body.inputType || 'video'; // 'video' or 'script'
   const scriptText = req.body.scriptText || '';
+  const faceEnhance = req.body.faceEnhance === 'true';
 
   if (inputType === 'video' && !targetFile) {
     return res.status(400).json({ error: "Missing target video file for Video Reference mode." });
@@ -274,7 +275,8 @@ app.post('/api/simple-swap', upload.fields([
       `[System] Initializing Pipeline...`,
       `[System] Task ID: ${taskId}`,
       `[System] Input Type: ${inputType === 'video' ? 'Video Reference' : 'Text Script'}`,
-      `[System] Voice Cloning Model: ${voiceModel || 'None'}`
+      `[System] Voice Cloning Model: ${voiceModel || 'None'}`,
+      `[System] Face Enhancement (HD): ${faceEnhance ? 'Enabled (GFPGAN)' : 'Disabled'}`
     ],
     outputUrl: null,
     error: null
@@ -357,8 +359,9 @@ app.post('/api/simple-swap', upload.fields([
         await runShellCommand(loopCmd, pushLog);
 
         // Step 5: FaceFusion Lip Syncer (Lip Sync looped video to speech audio)
-        pushLog(`[FaceFusion] Starting lip sync CLI...`);
-        const ffCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -t "${loopedVideoPath}" -s "${speechAudioPath}" -o "${finalOutputPath}" --processors lip_syncer --execution-providers coreml`;
+        const processors = faceEnhance ? 'lip_syncer face_enhancer' : 'lip_syncer';
+        pushLog(`[FaceFusion] Starting lip sync CLI (processors: ${processors})...`);
+        const ffCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -t "${loopedVideoPath}" -s "${speechAudioPath}" -o "${finalOutputPath}" --processors ${processors} --execution-providers coreml`;
         await runShellCommand(ffCmd, pushLog);
         pushLog(`[FaceFusion] Lip sync completed successfully.`);
 
@@ -385,9 +388,10 @@ app.post('/api/simple-swap', upload.fields([
 
         if (mode === 'face') {
           // --- FaceFusion Face Swap ---
+          const processors = faceEnhance ? 'face_swapper face_enhancer' : 'face_swapper';
           videoSilentPath = path.join(uploadsDir, `ff_out_${taskId}.mp4`);
-          pushLog(`[FaceFusion] Starting face swap CLI...`);
-          const cmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -s "${sourcePath}" -t "${targetPath}" -o "${videoSilentPath}" --processors face_swapper --execution-providers coreml`;
+          pushLog(`[FaceFusion] Starting face swap CLI (processors: ${processors})...`);
+          const cmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -s "${sourcePath}" -t "${targetPath}" -o "${videoSilentPath}" --processors ${processors} --execution-providers coreml`;
           await runShellCommand(cmd, pushLog);
           pushLog(`[FaceFusion] Face swap completed.`);
         } else {
@@ -407,6 +411,16 @@ app.post('/api/simple-swap', upload.fields([
           
           videoSilentPath = path.join(lpTempDir, cleanVideo);
           pushLog(`[LivePortrait] Animation completed. Found clean video: ${cleanVideo}`);
+
+          // Optional face enhancement post-processing for LivePortrait
+          if (faceEnhance) {
+            pushLog(`[FaceFusion] Running face enhancement post-processing on animated video...`);
+            const enhancedPath = path.join(lpTempDir, `enhanced_${cleanVideo}`);
+            const enhanceCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -t "${videoSilentPath}" -o "${enhancedPath}" --processors face_enhancer --execution-providers coreml`;
+            await runShellCommand(enhanceCmd, pushLog);
+            videoSilentPath = enhancedPath;
+            pushLog(`[FaceFusion] Face enhancement post-processing completed.`);
+          }
         }
 
         // Voice Conversion (RVC)
