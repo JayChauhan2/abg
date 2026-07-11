@@ -233,7 +233,7 @@ app.get('/api/voice-models', (req, res) => {
   }
 });
 
-// Unified One-Click Generator API (Face Swap OR LivePortrait + RVC Voice Conversion)
+// Unified One-Click Generator API
 app.post('/api/simple-swap', upload.fields([
   { name: 'source', maxCount: 1 },
   { name: 'target', maxCount: 1 }
@@ -241,18 +241,20 @@ app.post('/api/simple-swap', upload.fields([
   const sourceFile = req.files['source']?.[0];
   const targetFile = req.files['target']?.[0];
   const mode = req.body.mode || 'face'; // 'face' or 'body'
-  const voiceModel = req.body.voiceModel || ''; // empty means no voice conversion
+  const voiceModel = req.body.voiceModel || '';
   
-  if (!sourceFile || !targetFile) {
-    return res.status(400).json({ error: "Missing source image or target video file." });
+  const inputType = req.body.inputType || 'video'; // 'video' or 'script'
+  const scriptText = req.body.scriptText || '';
+
+  if (inputType === 'video' && !targetFile) {
+    return res.status(400).json({ error: "Missing target video file for Video Reference mode." });
+  }
+  if (inputType === 'script' && !scriptText.trim()) {
+    return res.status(400).json({ error: "Script text is required for Text Script mode." });
   }
 
   const taskId = 'task_' + Date.now();
-  const sourcePath = sourceFile.path;
-  const targetPath = targetFile.path;
-  
-  const ext = path.extname(targetFile.originalname) || '.mp4';
-  const finalOutputFilename = `final_${Date.now()}${ext}`;
+  const finalOutputFilename = `final_${Date.now()}.mp4`;
   const finalOutputPath = path.join(outputsDir, finalOutputFilename);
 
   swapTasks[taskId] = {
@@ -260,8 +262,8 @@ app.post('/api/simple-swap', upload.fields([
     logs: [
       `[System] Initializing Pipeline...`,
       `[System] Task ID: ${taskId}`,
-      `[System] Mode: ${mode === 'face' ? 'Just Face (FaceFusion)' : 'Whole Body (LivePortrait)'}`,
-      `[System] Voice Cloning Model: ${voiceModel || 'None (Original Audio)'}`
+      `[System] Input Type: ${inputType === 'video' ? 'Video Reference' : 'Text Script'}`,
+      `[System] Voice Cloning Model: ${voiceModel || 'None'}`
     ],
     outputUrl: null,
     error: null
@@ -269,98 +271,182 @@ app.post('/api/simple-swap', upload.fields([
 
   res.json({ taskId });
 
-  // Run generation asynchronously
+  // Run generation pipeline asynchronously
   (async () => {
     const pushLog = (text) => {
       console.log(`[${taskId}] ${text}`);
       swapTasks[taskId].logs.push(text);
     };
 
+    let sourcePath = sourceFile ? sourceFile.path : '';
+    let targetPath = targetFile ? targetFile.path : '';
+
     try {
-      let videoSilentPath = '';
+      if (inputType === 'script') {
+        // ==========================================
+        // PIPELINE B: TEXT SCRIPT INPUT
+        // ==========================================
+        
+        // Step 1: Text-to-Speech (TTS)
+        pushLog(`[TTS] Generating speech audio from script...`);
+        const ttsWav = path.join(uploadsDir, `tts_${taskId}.wav`);
+        
+        // Execute generate_tts.py under facefusion environment
+        const ttsCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && python "${path.join(__dirname, 'generate_tts.py')}" "${scriptText.replace(/"/g, '\\"')}" "${ttsWav}"`;
+        await runShellCommand(ttsCmd, pushLog);
+        
+        let speechAudioPath = ttsWav;
 
-      if (mode === 'face') {
-        // --- Option A: FaceFusion (Just Face Swap) ---
-        videoSilentPath = path.join(uploadsDir, `ff_out_${taskId}${ext}`);
-        pushLog(`[FaceFusion] Starting face swap CLI...`);
-        const cmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -s "${sourcePath}" -t "${targetPath}" -o "${videoSilentPath}" --processors face_swapper --execution-providers coreml`;
-        await runShellCommand(cmd, pushLog);
-        pushLog(`[FaceFusion] Face swap completed.`);
-      } else {
-        // --- Option B: LivePortrait (Whole Body/Animate Portrait) ---
-        const lpTempDir = path.join(uploadsDir, `lp_out_${taskId}`);
-        fs.mkdirSync(lpTempDir, { recursive: true });
-        pushLog(`[LivePortrait] Animating portrait with driving video...`);
-        
-        const cmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate comfyui && cd /Users/jaychauhan/ai-video-tools/LivePortrait && python inference.py -s "${sourcePath}" -d "${targetPath}" -o "${lpTempDir}"`;
-        await runShellCommand(cmd, pushLog);
-        
-        // Find the generated clean animated video in output folder
-        const lpFiles = fs.readdirSync(lpTempDir);
-        const cleanVideo = lpFiles.find(f => f.endsWith('.mp4') && !f.includes('concat'));
-        if (!cleanVideo) {
-          throw new Error("LivePortrait finished but output video file was not found.");
-        }
-        
-        videoSilentPath = path.join(lpTempDir, cleanVideo);
-        pushLog(`[LivePortrait] Animation completed. Found clean video: ${cleanVideo}`);
-      }
-
-      // --- Voice Conversion Section (RVC) ---
-      let audioPath = '';
-      if (voiceModel) {
-        pushLog(`[RVC] Extracting audio track from reference video...`);
-        const targetWav = path.join(uploadsDir, `target_${taskId}.wav`);
-        const extractCmd = `ffmpeg -y -i "${targetPath}" -q:a 0 -map a "${targetWav}"`;
-        
-        try {
-          await runShellCommand(extractCmd);
-          pushLog(`[RVC] Voice cloning using model: ${voiceModel}...`);
-          
+        // Step 2: Voice Conversion (RVC)
+        if (voiceModel) {
+          pushLog(`[RVC] Applying voice model: ${voiceModel}...`);
           const convertedWav = path.join(uploadsDir, `converted_${taskId}.wav`);
-          const rvcCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate rvc && cd /Users/jaychauhan/ai-video-tools/RVC-WebUI-MacOS && python tools/infer_cli.py --f0method rmvpe --input_path "${targetWav}" --opt_path "${convertedWav}" --model_name "${voiceModel}" --device mps`;
+          const rvcCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate rvc && cd /Users/jaychauhan/ai-video-tools/RVC-WebUI-MacOS && python tools/infer_cli.py --f0method rmvpe --input_path "${ttsWav}" --opt_path "${convertedWav}" --model_name "${voiceModel}" --device mps`;
           await runShellCommand(rvcCmd, pushLog);
           
-          audioPath = convertedWav;
-          pushLog(`[RVC] Voice cloning finished successfully.`);
-        } catch (e) {
-          pushLog(`[RVC Warning] Audio extraction or RVC conversion failed. Original target audio will be kept. Error: ${e.message}`);
+          speechAudioPath = convertedWav;
+          pushLog(`[RVC] Voice cloning completed.`);
         }
-      }
 
-      // --- Merge Video and Audio ---
-      pushLog(`[System] Merging video and audio tracks...`);
-      if (audioPath && fs.existsSync(audioPath)) {
-        // Merge with RVC converted audio
-        const mergeCmd = `ffmpeg -y -i "${videoSilentPath}" -i "${audioPath}" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 "${finalOutputPath}"`;
-        await runShellCommand(mergeCmd, pushLog);
-      } else {
-        // Try merging with original target audio
-        const mergeCmd = `ffmpeg -y -i "${videoSilentPath}" -i "${targetPath}" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 "${finalOutputPath}"`;
+        // Step 3: Base Target Video Resolution
+        let baseTargetVideoPath = '';
+        if (sourcePath) {
+          // A. Custom girl image uploaded: Run LivePortrait to animate her head first
+          pushLog(`[LivePortrait] Custom portrait uploaded. Animating custom portrait to create base talking video...`);
+          const lpTempDir = path.join(uploadsDir, `lp_base_${taskId}`);
+          fs.mkdirSync(lpTempDir, { recursive: true });
+          
+          const lpCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate comfyui && cd /Users/jaychauhan/ai-video-tools/LivePortrait && python inference.py -s "${sourcePath}" -d assets/examples/driving/d0.mp4 -o "${lpTempDir}"`;
+          await runShellCommand(lpCmd, pushLog);
+          
+          const lpFiles = fs.readdirSync(lpTempDir);
+          const cleanVideo = lpFiles.find(f => f.endsWith('.mp4') && !f.includes('concat'));
+          if (!cleanVideo) {
+            throw new Error("LivePortrait failed to generate custom base template.");
+          }
+          baseTargetVideoPath = path.join(lpTempDir, cleanVideo);
+          pushLog(`[LivePortrait] Animated base video generated successfully.`);
+        } else {
+          // B. No image uploaded: Use pre-generated high-quality cute girl loop
+          baseTargetVideoPath = path.join(__dirname, 'public/templates/default_girl_talking.mp4');
+          if (!fs.existsSync(baseTargetVideoPath)) {
+            throw new Error("Default AI avatar template default_girl_talking.mp4 is missing.");
+          }
+          pushLog(`[System] Using default cute AI girl talking template...`);
+        }
+
+        // Step 4: Loop/Trim Video to Audio Length
+        pushLog(`[FFmpeg] Loop template video to match speech length...`);
+        const loopedVideoPath = path.join(uploadsDir, `loop_${taskId}.mp4`);
+        const loopCmd = `ffmpeg -y -stream_loop -1 -i "${baseTargetVideoPath}" -i "${speechAudioPath}" -shortest -c:v libx264 -pix_fmt yuv420p -an "${loopedVideoPath}"`;
+        await runShellCommand(loopCmd, pushLog);
+
+        // Step 5: FaceFusion Lip Syncer (Lip Sync looped video to speech audio)
+        pushLog(`[FaceFusion] Starting lip sync CLI...`);
+        const ffCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -t "${loopedVideoPath}" -s "${speechAudioPath}" -o "${finalOutputPath}" --processors lip_syncer --execution-providers coreml`;
+        await runShellCommand(ffCmd, pushLog);
+        pushLog(`[FaceFusion] Lip sync completed successfully.`);
+
+        // Clean up uploads
         try {
-          await runShellCommand(mergeCmd);
-        } catch (err) {
-          pushLog(`[System Warning] Merging original audio failed (video might be silent). Exporting video as silent.`);
-          // If no audio is present, just copy the video
-          fs.copyFileSync(videoSilentPath, finalOutputPath);
+          if (fs.existsSync(ttsWav)) fs.unlinkSync(ttsWav);
+          const convertedWav = path.join(uploadsDir, `converted_${taskId}.wav`);
+          if (fs.existsSync(convertedWav)) fs.unlinkSync(convertedWav);
+          if (fs.existsSync(loopedVideoPath)) fs.unlinkSync(loopedVideoPath);
+          if (sourcePath && fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath);
+          if (sourcePath) {
+            const lpTempDir = path.join(uploadsDir, `lp_base_${taskId}`);
+            fs.rmSync(lpTempDir, { recursive: true, force: true });
+          }
+        } catch (e) {
+          console.warn("Cleanup warning:", e);
         }
-      }
 
-      // Cleanup temp outputs
-      try {
-        fs.unlinkSync(sourcePath);
-        fs.unlinkSync(targetPath);
-        if (mode === 'face' && fs.existsSync(videoSilentPath)) fs.unlinkSync(videoSilentPath);
-        if (mode === 'body') {
+      } else {
+        // ==========================================
+        // PIPELINE A: VIDEO REFERENCE INPUT
+        // ==========================================
+        let videoSilentPath = '';
+
+        if (mode === 'face') {
+          // --- FaceFusion Face Swap ---
+          videoSilentPath = path.join(uploadsDir, `ff_out_${taskId}.mp4`);
+          pushLog(`[FaceFusion] Starting face swap CLI...`);
+          const cmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -s "${sourcePath}" -t "${targetPath}" -o "${videoSilentPath}" --processors face_swapper --execution-providers coreml`;
+          await runShellCommand(cmd, pushLog);
+          pushLog(`[FaceFusion] Face swap completed.`);
+        } else {
+          // --- LivePortrait Animation ---
           const lpTempDir = path.join(uploadsDir, `lp_out_${taskId}`);
-          fs.rmSync(lpTempDir, { recursive: true, force: true });
+          fs.mkdirSync(lpTempDir, { recursive: true });
+          pushLog(`[LivePortrait] Animating portrait with driving video...`);
+          
+          const cmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate comfyui && cd /Users/jaychauhan/ai-video-tools/LivePortrait && python inference.py -s "${sourcePath}" -d "${targetPath}" -o "${lpTempDir}"`;
+          await runShellCommand(cmd, pushLog);
+          
+          const lpFiles = fs.readdirSync(lpTempDir);
+          const cleanVideo = lpFiles.find(f => f.endsWith('.mp4') && !f.includes('concat'));
+          if (!cleanVideo) {
+            throw new Error("LivePortrait finished but output video file was not found.");
+          }
+          
+          videoSilentPath = path.join(lpTempDir, cleanVideo);
+          pushLog(`[LivePortrait] Animation completed. Found clean video: ${cleanVideo}`);
         }
-        const targetWav = path.join(uploadsDir, `target_${taskId}.wav`);
-        const convertedWav = path.join(uploadsDir, `converted_${taskId}.wav`);
-        if (fs.existsSync(targetWav)) fs.unlinkSync(targetWav);
-        if (fs.existsSync(convertedWav)) fs.unlinkSync(convertedWav);
-      } catch (cleanupErr) {
-        console.error("Cleanup warning:", cleanupErr);
+
+        // Voice Conversion (RVC)
+        let audioPath = '';
+        if (voiceModel) {
+          pushLog(`[RVC] Extracting audio track from reference video...`);
+          const targetWav = path.join(uploadsDir, `target_${taskId}.wav`);
+          const extractCmd = `ffmpeg -y -i "${targetPath}" -q:a 0 -map a "${targetWav}"`;
+          
+          try {
+            await runShellCommand(extractCmd);
+            pushLog(`[RVC] Voice cloning using model: ${voiceModel}...`);
+            
+            const convertedWav = path.join(uploadsDir, `converted_${taskId}.wav`);
+            const rvcCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate rvc && cd /Users/jaychauhan/ai-video-tools/RVC-WebUI-MacOS && python tools/infer_cli.py --f0method rmvpe --input_path "${targetWav}" --opt_path "${convertedWav}" --model_name "${voiceModel}" --device mps`;
+            await runShellCommand(rvcCmd, pushLog);
+            
+            audioPath = convertedWav;
+            pushLog(`[RVC] Voice cloning finished successfully.`);
+          } catch (e) {
+            pushLog(`[RVC Warning] Audio extraction or RVC conversion failed. Original target audio will be kept. Error: ${e.message}`);
+          }
+        }
+
+        // Merge Video and Audio
+        pushLog(`[System] Merging video and audio tracks...`);
+        if (audioPath && fs.existsSync(audioPath)) {
+          const mergeCmd = `ffmpeg -y -i "${videoSilentPath}" -i "${audioPath}" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 "${finalOutputPath}"`;
+          await runShellCommand(mergeCmd, pushLog);
+        } else {
+          const mergeCmd = `ffmpeg -y -i "${videoSilentPath}" -i "${targetPath}" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 "${finalOutputPath}"`;
+          try {
+            await runShellCommand(mergeCmd);
+          } catch (err) {
+            pushLog(`[System Warning] Merging original audio failed (video might be silent). Exporting video as silent.`);
+            fs.copyFileSync(videoSilentPath, finalOutputPath);
+          }
+        }
+
+        // Cleanup
+        try {
+          if (fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath);
+          if (fs.existsSync(targetPath)) fs.unlinkSync(targetPath);
+          if (mode === 'face' && fs.existsSync(videoSilentPath)) fs.unlinkSync(videoSilentPath);
+          if (mode === 'body') {
+            const lpTempDir = path.join(uploadsDir, `lp_out_${taskId}`);
+            fs.rmSync(lpTempDir, { recursive: true, force: true });
+          }
+          const targetWav = path.join(uploadsDir, `target_${taskId}.wav`);
+          const convertedWav = path.join(uploadsDir, `converted_${taskId}.wav`);
+          if (fs.existsSync(targetWav)) fs.unlinkSync(targetWav);
+          if (fs.existsSync(convertedWav)) fs.unlinkSync(convertedWav);
+        } catch (cleanupErr) {
+          console.error("Cleanup warning:", cleanupErr);
+        }
       }
 
       swapTasks[taskId].status = 'completed';
@@ -373,10 +459,9 @@ app.post('/api/simple-swap', upload.fields([
       swapTasks[taskId].error = err.message;
       pushLog(`[System Error] Pipeline failed: ${err.message}`);
       
-      // Cleanup uploads
       try {
-        if (fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath);
-        if (fs.existsSync(targetPath)) fs.unlinkSync(targetPath);
+        if (sourcePath && fs.existsSync(sourcePath)) fs.unlinkSync(sourcePath);
+        if (targetPath && fs.existsSync(targetPath)) fs.unlinkSync(targetPath);
       } catch (e) {}
     }
   })();

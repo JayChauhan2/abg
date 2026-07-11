@@ -177,14 +177,29 @@
         <!-- View 2: One-Click Drag & Drop Face Swap -->
         <main class="swap-view hidden" id="view-swap">
             <div class="swap-container">
+                <!-- Input Mode Toggle -->
+                <div class="input-mode-panel">
+                    <label class="setting-label">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Input Source
+                    </label>
+                    <div class="segment-control input-mode-control">
+                        <button class="segment-btn active" id="btn-input-video" onclick="setInputType('video')">
+                            <i class="fa-solid fa-video"></i> Video Reference
+                        </button>
+                        <button class="segment-btn" id="btn-input-script" onclick="setInputType('script')">
+                            <i class="fa-solid fa-pen-nib"></i> Text Script (TTS)
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Dropzone Section -->
                 <div class="dropzone-grid">
                     <!-- Dropzone 1: Source Face -->
                     <div class="dropzone-card" id="dropzone-source">
                         <div class="dropzone-header">
                             <i class="fa-solid fa-image-portrait"></i>
-                            <h3>Source Face (Girl Image)</h3>
-                            <p>Upload the picture of the girl you want to use</p>
+                            <h3 id="source-card-title">Source Face (Girl Image)</h3>
+                            <p id="source-card-desc">Upload the picture of the girl you want to use (or leave empty to use default cute AI girl)</p>
                         </div>
                         <div class="dropzone-area" id="area-source">
                             <input type="file" id="input-source" accept="image/*" class="file-input">
@@ -218,6 +233,19 @@
                                 <video src="" muted loop></video>
                                 <button class="remove-btn" onclick="removeFile('target', event)"><i class="fa-solid fa-times"></i></button>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Speech Script Input (Hidden by default) -->
+                    <div class="dropzone-card hidden" id="card-script">
+                        <div class="dropzone-header">
+                            <i class="fa-solid fa-file-signature"></i>
+                            <h3>Speech Script</h3>
+                            <p>Type the text script you want the AI girl to say</p>
+                        </div>
+                        <div class="script-input-area">
+                            <textarea id="input-script" class="script-textarea" placeholder="Enter script here... (e.g., Hi there! Welcome to my profile. Today I am speaking to you entirely from a local AI model on this Mac! How does it sound?)"></textarea>
+                            <span class="file-limits">Supported: English text. Maximum 500 characters.</span>
                         </div>
                     </div>
                 </div>

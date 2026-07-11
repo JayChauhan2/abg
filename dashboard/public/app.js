@@ -11,6 +11,7 @@ let targetFileObj = null;
 let swapPollInterval = null;
 let swapLogsLength = 0;
 let swapMode = 'face'; // Default mode is face swap
+let inputType = 'video'; // 'video' or 'script'
 
 // Start polling status, logs, and RVC models
 document.addEventListener('DOMContentLoaded', () => {
@@ -41,7 +42,6 @@ function switchMode(mode) {
         dashboardView.classList.remove('hidden');
         swapView.classList.add('hidden');
     } else {
-        dashboardBtn.classList.add('active'); // Wait, make active tab highlight
         dashboardBtn.classList.remove('active');
         swapBtn.classList.add('active');
         dashboardView.classList.add('hidden');
@@ -244,24 +244,60 @@ async function pollLogs() {
 // One-Click Generator Logic (Drag & Drop)
 // ==========================================
 
+// Switch Swap Input Type (Video vs Script)
+function setInputType(type) {
+    inputType = type;
+    const videoBtn = document.getElementById('btn-input-video');
+    const scriptBtn = document.getElementById('btn-input-script');
+    const targetCard = document.getElementById('dropzone-target');
+    const scriptCard = document.getElementById('card-script');
+
+    const sourceTitle = document.getElementById('source-card-title');
+    const sourceDesc = document.getElementById('source-card-desc');
+
+    if (type === 'video') {
+        videoBtn.classList.add('active');
+        scriptBtn.classList.remove('active');
+        targetCard.classList.remove('hidden');
+        scriptCard.classList.add('hidden');
+
+        // Adjust Source card labeling
+        sourceTitle.textContent = swapMode === 'face' ? "Source Face (Girl Image)" : "Source Portrait (Static Girl Photo)";
+        sourceDesc.textContent = "Upload the picture of the girl you want to use";
+    } else {
+        videoBtn.classList.remove('active');
+        scriptBtn.classList.add('active');
+        targetCard.classList.add('hidden');
+        scriptCard.classList.remove('hidden');
+
+        // Adjust Source card labeling to show optionality
+        sourceTitle.textContent = "Target Avatar Photo (Optional)";
+        sourceDesc.textContent = "Upload a picture of the girl you want (or leave blank to use default cute AI girl)";
+    }
+}
+
 // Switch Swap Processing Mode (Face swap vs Whole Body)
 function setSwapMode(mode) {
     swapMode = mode;
     const faceBtn = document.getElementById('segment-mode-face');
     const bodyBtn = document.getElementById('segment-mode-body');
-    const dropzoneSourceTitle = document.querySelector('#dropzone-source h3');
-    const dropzoneSourceDesc = document.querySelector('#dropzone-source p');
+    const sourceTitle = document.getElementById('source-card-title');
+    const sourceDesc = document.getElementById('source-card-desc');
 
     if (mode === 'face') {
         faceBtn.classList.add('active');
         bodyBtn.classList.remove('active');
-        dropzoneSourceTitle.textContent = "Source Face (Girl Image)";
-        dropzoneSourceDesc.textContent = "Upload the picture of the girl you want to use";
+        if (inputType === 'video') {
+            sourceTitle.textContent = "Source Face (Girl Image)";
+            sourceDesc.textContent = "Upload the picture of the girl you want to use";
+        }
     } else {
         faceBtn.classList.remove('active');
         bodyBtn.classList.add('active');
-        dropzoneSourceTitle.textContent = "Source Portrait (Static Girl Photo)";
-        dropzoneSourceDesc.textContent = "Upload the static photo of the girl (contains her hair & body)";
+        if (inputType === 'video') {
+            sourceTitle.textContent = "Source Portrait (Static Girl Photo)";
+            sourceDesc.textContent = "Upload the static photo of the girl (contains her hair & body)";
+        }
     }
 }
 
@@ -275,7 +311,6 @@ async function loadVoiceModels() {
         const response = await fetch('/api/voice-models');
         const data = await response.json();
         
-        // Preserve keep original audio option
         select.innerHTML = '<option value="">-- Keep Original Audio --</option>';
         
         if (data.models && data.models.length > 0) {
@@ -335,7 +370,7 @@ function setupDropzone(type, inputId, areaId, previewId) {
 function handleFileSelect(type, file, inputElement, previewElement) {
     if (type === 'source') {
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file for the Source Portrait.');
+            alert('Please select an image file for the Portrait.');
             return;
         }
         sourceFileObj = file;
@@ -344,7 +379,7 @@ function handleFileSelect(type, file, inputElement, previewElement) {
         previewElement.classList.remove('hidden');
     } else {
         if (!file.type.startsWith('video/')) {
-            alert('Please select a video file for the Target Video.');
+            alert('Please select a video file for the Reference Video.');
             return;
         }
         targetFileObj = file;
@@ -375,33 +410,48 @@ function removeFile(type, event) {
 
 // Run AI Video Generation
 async function startSimpleSwap() {
-    if (!sourceFileObj || !targetFileObj) {
-        alert("Please upload both a Source Portrait image and a Target Video.");
-        return;
+    // Validations based on Input Type
+    if (inputType === 'video') {
+        if (!sourceFileObj || !targetFileObj) {
+            alert("Please upload both a Source Portrait image and a Target Video.");
+            return;
+        }
+    } else {
+        const scriptVal = document.getElementById('input-script').value.trim();
+        if (!scriptVal) {
+            alert("Please enter a speech script for the AI girl to speak.");
+            return;
+        }
     }
 
     const btn = document.getElementById('btn-generate-swap');
     const processingPanel = document.getElementById('processing-panel');
     const dropzoneGrid = document.querySelector('.dropzone-grid');
     const settingsPanel = document.querySelector('.settings-panel');
+    const inputModePanel = document.querySelector('.input-mode-panel');
     const actionBar = document.querySelector('.generate-action-bar');
     const cliLogs = document.getElementById('cli-logs');
     const statusTitle = document.getElementById('processing-status-title');
     const voiceModelSelect = document.getElementById('select-voice-model');
+    const scriptVal = document.getElementById('input-script').value;
 
     // Lock UI and show processing state
     btn.disabled = true;
     dropzoneGrid.classList.add('hidden');
     settingsPanel.classList.add('hidden');
+    inputModePanel.classList.add('hidden');
     actionBar.classList.add('hidden');
     processingPanel.classList.remove('hidden');
-    statusTitle.textContent = "Processing AI Video...";
+    statusTitle.textContent = inputType === 'video' ? "Processing AI Video..." : "Generating AI Script Video...";
     cliLogs.innerHTML = `<div class="cli-line">[System] Initializing backend request...</div>`;
     swapLogsLength = 0;
 
     const formData = new FormData();
-    formData.append('source', sourceFileObj);
-    formData.append('target', targetFileObj);
+    if (sourceFileObj) formData.append('source', sourceFileObj);
+    if (targetFileObj) formData.append('target', targetFileObj);
+    
+    formData.append('inputType', inputType);
+    formData.append('scriptText', scriptVal);
     formData.append('mode', swapMode);
     formData.append('voiceModel', voiceModelSelect.value);
 
@@ -417,7 +467,6 @@ async function startSimpleSwap() {
         }
 
         const taskId = data.taskId;
-        // Start polling task logs and completion status
         swapPollInterval = setInterval(() => pollSwapTask(taskId), 1000);
 
     } catch (err) {
@@ -492,7 +541,6 @@ function showSwapFailure(errorText) {
     errDiv.textContent = `[Error] ${errorText}`;
     cliLogs.appendChild(errDiv);
     
-    // Add reset button in processing panel to try again
     const resetBtn = document.createElement('button');
     resetBtn.className = "btn btn-outline";
     resetBtn.style.marginTop = "16px";
@@ -515,21 +563,22 @@ function resetSwapForm() {
     // Reset inputs & previews
     removeFile('source', { stopPropagation: () => {} });
     removeFile('target', { stopPropagation: () => {} });
+    document.getElementById('input-script').value = '';
     
-    // Reset titles/spinners in case they failed
+    // Reset titles/spinners
     const title = document.getElementById('processing-status-title');
     const spinner = document.querySelector('.processing-spinner');
     title.textContent = "Processing AI Video...";
     title.style.color = "var(--text-main)";
     if (spinner) spinner.style.borderTopColor = "var(--primary)";
     
-    // Remove dynamically added go back buttons
     const addedButtons = document.getElementById('processing-panel').querySelectorAll('button');
     addedButtons.forEach(btn => btn.remove());
 
-    // Show dropzones, settings, & action bar
+    // Show panels
     document.querySelector('.dropzone-grid').classList.remove('hidden');
     document.querySelector('.settings-panel').classList.remove('hidden');
+    document.querySelector('.input-mode-panel').classList.remove('hidden');
     document.querySelector('.generate-action-bar').classList.remove('hidden');
     document.getElementById('btn-generate-swap').disabled = false;
 }
