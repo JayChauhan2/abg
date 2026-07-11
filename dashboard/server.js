@@ -17,7 +17,16 @@ const outputsDir = path.join(__dirname, 'public/outputs');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 if (!fs.existsSync(outputsDir)) fs.mkdirSync(outputsDir, { recursive: true });
 
-const upload = multer({ dest: uploadsDir });
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage: storage });
 
 const toolConfigs = {
   comfyui: {
