@@ -10,11 +10,13 @@ let sourceFileObj = null;
 let targetFileObj = null;
 let swapPollInterval = null;
 let swapLogsLength = 0;
+let swapMode = 'face'; // Default mode is face swap
 
-// Start polling status and logs
+// Start polling status, logs, and RVC models
 document.addEventListener('DOMContentLoaded', () => {
     pollStatus();
     pollLogs();
+    loadVoiceModels();
     
     // Poll status every 2 seconds
     setInterval(pollStatus, 2000);
@@ -39,10 +41,13 @@ function switchMode(mode) {
         dashboardView.classList.remove('hidden');
         swapView.classList.add('hidden');
     } else {
+        dashboardBtn.classList.add('active'); // Wait, make active tab highlight
         dashboardBtn.classList.remove('active');
         swapBtn.classList.add('active');
         dashboardView.classList.add('hidden');
         swapView.classList.remove('hidden');
+        // Refresh models when entering swap view
+        loadVoiceModels();
     }
 }
 
@@ -236,8 +241,57 @@ async function pollLogs() {
 }
 
 // ==========================================
-// One-Click Face Swap Logic (Drag & Drop)
+// One-Click Generator Logic (Drag & Drop)
 // ==========================================
+
+// Switch Swap Processing Mode (Face swap vs Whole Body)
+function setSwapMode(mode) {
+    swapMode = mode;
+    const faceBtn = document.getElementById('segment-mode-face');
+    const bodyBtn = document.getElementById('segment-mode-body');
+    const dropzoneSourceTitle = document.querySelector('#dropzone-source h3');
+    const dropzoneSourceDesc = document.querySelector('#dropzone-source p');
+
+    if (mode === 'face') {
+        faceBtn.classList.add('active');
+        bodyBtn.classList.remove('active');
+        dropzoneSourceTitle.textContent = "Source Face (Girl Image)";
+        dropzoneSourceDesc.textContent = "Upload the picture of the girl you want to use";
+    } else {
+        faceBtn.classList.remove('active');
+        bodyBtn.classList.add('active');
+        dropzoneSourceTitle.textContent = "Source Portrait (Static Girl Photo)";
+        dropzoneSourceDesc.textContent = "Upload the static photo of the girl (contains her hair & body)";
+    }
+}
+
+// Load RVC voice models from backend weights folder
+async function loadVoiceModels() {
+    const select = document.getElementById('select-voice-model');
+    const refreshBtn = document.querySelector('.btn-refresh i');
+    if (refreshBtn) refreshBtn.classList.add('fa-spin');
+    
+    try {
+        const response = await fetch('/api/voice-models');
+        const data = await response.json();
+        
+        // Preserve keep original audio option
+        select.innerHTML = '<option value="">-- Keep Original Audio --</option>';
+        
+        if (data.models && data.models.length > 0) {
+            data.models.forEach(model => {
+                const opt = document.createElement('option');
+                opt.value = model;
+                opt.textContent = model.replace('.pth', '');
+                select.appendChild(opt);
+            });
+        }
+    } catch (err) {
+        console.error("Failed to load voice models:", err);
+    } finally {
+        if (refreshBtn) refreshBtn.classList.remove('fa-spin');
+    }
+}
 
 // Configure drag and drop listeners for a specific input
 function setupDropzone(type, inputId, areaId, previewId) {
@@ -245,10 +299,8 @@ function setupDropzone(type, inputId, areaId, previewId) {
     const area = document.getElementById(areaId);
     const preview = document.getElementById(previewId);
 
-    // Clicks on dropzone open file explorer
     area.addEventListener('click', () => input.click());
 
-    // Highlight on dragover
     ['dragenter', 'dragover'].forEach(eventName => {
         area.addEventListener(eventName, (e) => {
             e.preventDefault();
@@ -257,7 +309,6 @@ function setupDropzone(type, inputId, areaId, previewId) {
         }, false);
     });
 
-    // Unhighlight on dragleave
     ['dragleave', 'drop'].forEach(eventName => {
         area.addEventListener(eventName, (e) => {
             e.preventDefault();
@@ -266,7 +317,6 @@ function setupDropzone(type, inputId, areaId, previewId) {
         }, false);
     });
 
-    // Handle dropped files
     area.addEventListener('drop', (e) => {
         const dt = e.dataTransfer;
         const files = dt.files;
@@ -275,7 +325,6 @@ function setupDropzone(type, inputId, areaId, previewId) {
         }
     }, false);
 
-    // Handle standard browse selection
     input.addEventListener('change', () => {
         if (input.files.length > 0) {
             handleFileSelect(type, input.files[0], input, preview);
@@ -283,11 +332,10 @@ function setupDropzone(type, inputId, areaId, previewId) {
     });
 }
 
-// Render local file previews
 function handleFileSelect(type, file, inputElement, previewElement) {
     if (type === 'source') {
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file for the Source Face.');
+            alert('Please select an image file for the Source Portrait.');
             return;
         }
         sourceFileObj = file;
@@ -307,9 +355,8 @@ function handleFileSelect(type, file, inputElement, previewElement) {
     }
 }
 
-// Remove uploaded file
 function removeFile(type, event) {
-    event.stopPropagation(); // prevent opening browse dialouge
+    event.stopPropagation();
     const preview = document.getElementById(`preview-${type}`);
     const input = document.getElementById(`input-${type}`);
     
@@ -326,30 +373,37 @@ function removeFile(type, event) {
     preview.classList.add('hidden');
 }
 
-// Run Face Swap
+// Run AI Video Generation
 async function startSimpleSwap() {
     if (!sourceFileObj || !targetFileObj) {
-        alert("Please upload both a Source Face image and a Target Video.");
+        alert("Please upload both a Source Portrait image and a Target Video.");
         return;
     }
 
     const btn = document.getElementById('btn-generate-swap');
     const processingPanel = document.getElementById('processing-panel');
     const dropzoneGrid = document.querySelector('.dropzone-grid');
+    const settingsPanel = document.querySelector('.settings-panel');
     const actionBar = document.querySelector('.generate-action-bar');
     const cliLogs = document.getElementById('cli-logs');
+    const statusTitle = document.getElementById('processing-status-title');
+    const voiceModelSelect = document.getElementById('select-voice-model');
 
     // Lock UI and show processing state
     btn.disabled = true;
     dropzoneGrid.classList.add('hidden');
+    settingsPanel.classList.add('hidden');
     actionBar.classList.add('hidden');
     processingPanel.classList.remove('hidden');
-    cliLogs.innerHTML = `<div class="cli-line">[System] Packaging files and initiating backend request...</div>`;
+    statusTitle.textContent = "Processing AI Video...";
+    cliLogs.innerHTML = `<div class="cli-line">[System] Initializing backend request...</div>`;
     swapLogsLength = 0;
 
     const formData = new FormData();
     formData.append('source', sourceFileObj);
     formData.append('target', targetFileObj);
+    formData.append('mode', swapMode);
+    formData.append('voiceModel', voiceModelSelect.value);
 
     try {
         const response = await fetch('/api/simple-swap', {
@@ -367,12 +421,12 @@ async function startSimpleSwap() {
         swapPollInterval = setInterval(() => pollSwapTask(taskId), 1000);
 
     } catch (err) {
-        console.error("Simple swap request error:", err);
-        showSwapFailure(err.message || "Failed to trigger face swap.");
+        console.error("Pipeline request error:", err);
+        showSwapFailure(err.message || "Failed to trigger generation pipeline.");
     }
 }
 
-// Poll FaceSwap task
+// Poll pipeline task
 async function pollSwapTask(taskId) {
     try {
         const response = await fetch(`/api/simple-swap/status/${taskId}`);
@@ -398,7 +452,7 @@ async function pollSwapTask(taskId) {
             showSwapSuccess(task.outputUrl);
         } else if (task.status === 'failed') {
             clearInterval(swapPollInterval);
-            showSwapFailure(task.error || "The face swap task crashed.");
+            showSwapFailure(task.error || "The generation task crashed.");
         }
     } catch (e) {
         console.error("Error polling swap task status:", e);
@@ -465,7 +519,7 @@ function resetSwapForm() {
     // Reset titles/spinners in case they failed
     const title = document.getElementById('processing-status-title');
     const spinner = document.querySelector('.processing-spinner');
-    title.textContent = "Processing Face Swap...";
+    title.textContent = "Processing AI Video...";
     title.style.color = "var(--text-main)";
     if (spinner) spinner.style.borderTopColor = "var(--primary)";
     
@@ -473,8 +527,9 @@ function resetSwapForm() {
     const addedButtons = document.getElementById('processing-panel').querySelectorAll('button');
     addedButtons.forEach(btn => btn.remove());
 
-    // Show dropzones & action bar
+    // Show dropzones, settings, & action bar
     document.querySelector('.dropzone-grid').classList.remove('hidden');
+    document.querySelector('.settings-panel').classList.remove('hidden');
     document.querySelector('.generate-action-bar').classList.remove('hidden');
     document.getElementById('btn-generate-swap').disabled = false;
 }

@@ -222,6 +222,39 @@
                     </div>
                 </div>
 
+                <!-- Settings Panel -->
+                <div class="settings-panel">
+                    <!-- Swap Mode Settings -->
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <i class="fa-solid fa-arrows-spin"></i> Processing Mode
+                        </label>
+                        <div class="segment-control">
+                            <button class="segment-btn active" id="segment-mode-face" onclick="setSwapMode('face')">
+                                <i class="fa-solid fa-user-ninja"></i> Just Face (FaceFusion)
+                            </button>
+                            <button class="segment-btn" id="segment-mode-body" onclick="setSwapMode('body')">
+                                <i class="fa-solid fa-user-astronaut"></i> Whole Body (LivePortrait)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- RVC Settings -->
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <i class="fa-solid fa-microphone-lines"></i> RVC Voice Conversion
+                        </label>
+                        <div class="voice-selector-wrapper">
+                            <select id="select-voice-model" class="dropdown-select">
+                                <option value="">-- Keep Original Audio --</option>
+                            </select>
+                            <button class="btn-refresh" onclick="loadVoiceModels()" title="Refresh voice models">
+                                <i class="fa-solid fa-rotate"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Generate Action -->
                 <div class="generate-action-bar">
                     <button class="btn btn-primary generate-btn" id="btn-generate-swap" onclick="startSimpleSwap()">
