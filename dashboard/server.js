@@ -391,8 +391,22 @@ app.get('/api/simple-swap/status/:taskId', (req, res) => {
   res.json(task);
 });
 
-app.listen(PORT, '127.0.0.1', () => {
+function killPort(port) {
+  return new Promise((resolve) => {
+    exec(`lsof -t -i:${port} | xargs kill -9`, (err) => {
+      resolve();
+    });
+  });
+}
+
+app.listen(PORT, '127.0.0.1', async () => {
   console.log(`AI Control Center running at http://127.0.0.1:${PORT}`);
+  
+  // Clean up orphaned processes on ports first
+  console.log("Cleaning up orphaned AI service processes...");
+  await killPort(8188);
+  await killPort(7860);
+  await killPort(7865);
   
   // Auto-start all background services on boot
   console.log("Auto-booting background AI services...");
