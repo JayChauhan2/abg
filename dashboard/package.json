@@ -1,0 +1,13 @@
+{
+  "name": "ai-video-dashboard",
+  "version": "1.0.0",
+  "description": "Control Center for Local AI Video & Voice Tools",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.2.0"
+  }
+}

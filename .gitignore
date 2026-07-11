@@ -1,0 +1,13 @@
+# Ignore massive third-party repositories and models
+ComfyUI/
+facefusion/
+RVC-WebUI-MacOS/
+
+# Ignore node modules and local files
+dashboard/node_modules/
+dashboard/uploads/
+dashboard/public/outputs/
+
+# Ignore macOS files
+.DS_Store
+*.log
