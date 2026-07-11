@@ -214,7 +214,7 @@ app.post('/api/simple-swap', upload.fields([
     error: null
   };
 
-  const command = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -s "${sourcePath}" -t "${targetPath}" -o "${outputPath}" --execution-providers coreml`;
+  const command = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -s "${sourcePath}" -t "${targetPath}" -o "${outputPath}" --processors face_swapper --execution-providers coreml`;
 
   const child = spawn('bash', ['-c', command], {
     detached: true,
@@ -222,11 +222,15 @@ app.post('/api/simple-swap', upload.fields([
   });
 
   child.stdout.on('data', (data) => {
-    swapTasks[taskId].logs.push(data.toString().trim());
+    const text = data.toString().trim();
+    console.log(`[FaceFusion CLI] ${text}`);
+    swapTasks[taskId].logs.push(text);
   });
 
   child.stderr.on('data', (data) => {
-    swapTasks[taskId].logs.push(data.toString().trim());
+    const text = data.toString().trim();
+    console.error(`[FaceFusion CLI ERROR] ${text}`);
+    swapTasks[taskId].logs.push(text);
   });
 
   child.on('close', (code) => {
