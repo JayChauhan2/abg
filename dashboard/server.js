@@ -139,15 +139,9 @@ app.get('/api/status', (req, res) => {
   res.json(statusData);
 });
 
-app.post('/api/start/:tool', (req, res) => {
-  const { tool } = req.params;
-  if (!toolConfigs[tool]) {
-    return res.status(404).json({ error: "Tool not found" });
-  }
-
-  if (processes[tool].status === 'running' || processes[tool].status === 'starting') {
-    return res.json({ message: `${toolConfigs[tool].name} is already active.` });
-  }
+function startTool(tool) {
+  if (!toolConfigs[tool]) return;
+  if (processes[tool].status === 'running' || processes[tool].status === 'starting') return;
 
   console.log(`Starting ${toolConfigs[tool].name}...`);
   processes[tool].status = 'starting';
@@ -175,7 +169,14 @@ app.post('/api/start/:tool', (req, res) => {
       text: `Process stopped (exit code ${code})`
     });
   });
+}
 
+app.post('/api/start/:tool', (req, res) => {
+  const { tool } = req.params;
+  if (!toolConfigs[tool]) {
+    return res.status(404).json({ error: "Tool not found" });
+  }
+  startTool(tool);
   res.json({ status: "started", message: `${toolConfigs[tool].name} has been launched.` });
 });
 
@@ -392,4 +393,10 @@ app.get('/api/simple-swap/status/:taskId', (req, res) => {
 
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`AI Control Center running at http://127.0.0.1:${PORT}`);
+  
+  // Auto-start all background services on boot
+  console.log("Auto-booting background AI services...");
+  Object.keys(toolConfigs).forEach(tool => {
+    startTool(tool);
+  });
 });
