@@ -2,6 +2,7 @@
 ComfyUI/
 facefusion/
 RVC-WebUI-MacOS/
+LivePortrait/
 
 # Ignore node modules and local files
 dashboard/node_modules/
