@@ -309,7 +309,7 @@ app.post('/api/simple-swap', upload.fields([
         if (!sourcePath && avatarPrompt) {
           pushLog(`[Stable Diffusion] Generating custom avatar portrait for prompt: "${avatarPrompt}"...`);
           generatedAvatarPath = path.join(uploadsDir, `avatar_${taskId}.jpg`);
-          const sdCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && python "${path.join(__dirname, 'generate_avatar.py')}" "${avatarPrompt.replace(/"/g, '\\"')}" "${generatedAvatarPath}"`;
+          const sdCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate comfyui && python "${path.join(__dirname, 'generate_avatar.py')}" "${avatarPrompt.replace(/"/g, '\\"')}" "${generatedAvatarPath}"`;
           await runShellCommand(sdCmd, pushLog);
           if (fs.existsSync(generatedAvatarPath)) {
             sourcePath = generatedAvatarPath;
