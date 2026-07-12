@@ -12,17 +12,11 @@ let swapPollInterval = null;
 let swapLogsLength = 0;
 let swapMode = 'face'; // Default mode is face swap
 let inputType = 'video'; // 'video' or 'script'
+let gazeMode = 'steady'; // Default gaze mode is steady (looks at camera)
 
-// Start polling status, logs, and RVC models
+// Start loading page assets and RVC models
 document.addEventListener('DOMContentLoaded', () => {
-    pollStatus();
-    pollLogs();
     loadVoiceModels();
-    
-    // Poll status every 2 seconds
-    setInterval(pollStatus, 2000);
-    // Poll logs every 2 seconds
-    setInterval(pollLogs, 2000);
 
     // Bind Dropzone Event Listeners
     setupDropzone('source', 'input-source', 'area-source', 'preview-source');
@@ -315,10 +309,12 @@ function setSwapMode(mode) {
     const bodyBtn = document.getElementById('segment-mode-body');
     const sourceTitle = document.getElementById('source-card-title');
     const sourceDesc = document.getElementById('source-card-desc');
+    const gazeItem = document.getElementById('setting-gaze-mode');
 
     if (mode === 'face') {
         faceBtn.classList.add('active');
         bodyBtn.classList.remove('active');
+        if (gazeItem) gazeItem.style.display = 'none';
         if (inputType === 'video') {
             sourceTitle.textContent = "Source Face (Girl Image)";
             sourceDesc.textContent = "Upload the picture of the girl you want to use";
@@ -326,10 +322,25 @@ function setSwapMode(mode) {
     } else {
         faceBtn.classList.remove('active');
         bodyBtn.classList.add('active');
+        if (gazeItem) gazeItem.style.display = 'block';
         if (inputType === 'video') {
             sourceTitle.textContent = "Source Portrait (Static Girl Photo)";
             sourceDesc.textContent = "Upload the static photo of the girl (contains her hair & body)";
         }
+    }
+}
+
+// Switch Gaze Mode (Steady vs Expressive)
+function setGazeMode(mode) {
+    gazeMode = mode;
+    const btnSteady = document.getElementById('segment-gaze-steady');
+    const btnExpressive = document.getElementById('segment-gaze-expressive');
+    if (mode === 'steady') {
+        if (btnSteady) btnSteady.classList.add('active');
+        if (btnExpressive) btnExpressive.classList.remove('active');
+    } else {
+        if (btnSteady) btnSteady.classList.remove('active');
+        if (btnExpressive) btnExpressive.classList.add('active');
     }
 }
 
@@ -497,6 +508,7 @@ async function startSimpleSwap() {
     formData.append('faceEnhance', faceEnhanceVal);
     formData.append('burnSubtitles', burnSubtitlesVal);
     formData.append('avatarPrompt', avatarPromptVal);
+    formData.append('gazeMode', gazeMode);
 
     try {
         const response = await fetch('/api/simple-swap', {

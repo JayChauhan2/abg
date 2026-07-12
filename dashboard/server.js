@@ -259,6 +259,7 @@ app.post('/api/simple-swap', upload.fields([
   const faceEnhance = req.body.faceEnhance === 'true';
   const burnSubtitles = req.body.burnSubtitles === 'true';
   const avatarPrompt = req.body.avatarPrompt || '';
+  const gazeMode = req.body.gazeMode || 'steady'; // 'steady' or 'expressive'
 
   if (inputType === 'video' && !targetFile) {
     return res.status(400).json({ error: "Missing target video file for Video Reference mode." });
@@ -348,7 +349,8 @@ app.post('/api/simple-swap', upload.fields([
           const lpTempDir = path.join(uploadsDir, `lp_base_${taskId}`);
           fs.mkdirSync(lpTempDir, { recursive: true });
           
-          const lpCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate comfyui && cd /Users/jaychauhan/ai-video-tools/LivePortrait && python inference.py -s "${sourcePath}" -d assets/examples/driving/d0.mp4 -o "${lpTempDir}"`;
+          const drivingFile = gazeMode === 'steady' ? 'assets/examples/driving/d11.pkl' : 'assets/examples/driving/d0.mp4';
+          const lpCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate comfyui && cd /Users/jaychauhan/ai-video-tools/LivePortrait && python inference.py -s "${sourcePath}" -d ${drivingFile} -o "${lpTempDir}"`;
           await runShellCommand(lpCmd, pushLog);
           
           const lpFiles = fs.readdirSync(lpTempDir);

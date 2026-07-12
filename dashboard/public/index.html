@@ -22,160 +22,14 @@
             <div class="header-main">
                 <div class="logo">
                     <i class="fa-solid fa-wand-magic-sparkles magic-icon"></i>
-                    <h1>AI Video <span>Control Center</span></h1>
-                </div>
-                <!-- Mode Selector -->
-                <div class="mode-selector">
-                    <button class="mode-btn active" id="mode-dashboard-btn" onclick="switchMode('dashboard')">
-                        <i class="fa-solid fa-gauge-high"></i> Dashboard
-                    </button>
-                    <button class="mode-btn" id="mode-swap-btn" onclick="switchMode('swap')">
-                        <i class="fa-solid fa-bolt"></i> One-Click Face Swap
-                    </button>
+                    <h1>AI Video <span>Generator</span></h1>
                 </div>
             </div>
-            <p class="subtitle">Launch and manage your local AI video generation pipeline on Apple Silicon, or run face swaps instantly below.</p>
+            <p class="subtitle">Generate realistic talking-head videos locally on your Mac using text scripts or reference videos.</p>
         </header>
 
-        <!-- View 1: Process Dashboard -->
-        <main class="dashboard-grid" id="view-dashboard">
-            <!-- Left Panel: Control Cards -->
-            <section class="controls-section">
-                <!-- Card: ComfyUI -->
-                <div class="card" id="card-comfyui">
-                    <div class="card-header">
-                        <div class="icon-title">
-                            <div class="app-icon-wrapper comfyui-accent">
-                                <i class="fa-solid fa-diagram-project"></i>
-                            </div>
-                            <div>
-                                <h3>ComfyUI</h3>
-                                <span class="accent-text">LivePortrait Animation</span>
-                            </div>
-                        </div>
-                        <div class="status-indicator">
-                            <span class="status-dot stopped"></span>
-                            <span class="status-text">Offline</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-desc">Animate static portrait photos using your self-recorded driving reference video.</p>
-                        <div class="port-info">
-                            <span class="badge"><i class="fa-solid fa-network-wired"></i> Port: 8188</span>
-                        </div>
-                    </div>
-                    <div class="card-actions">
-                        <button class="btn btn-primary start-btn" onclick="startService('comfyui')">
-                            <i class="fa-solid fa-play"></i> Start Service
-                        </button>
-                        <button class="btn btn-danger stop-btn hidden" onclick="stopService('comfyui')">
-                            <i class="fa-solid fa-stop"></i> Stop
-                        </button>
-                        <a href="http://127.0.0.1:8188" target="_blank" class="btn btn-outline open-btn hidden" id="open-comfyui">
-                            <i class="fa-solid fa-external-link"></i> Open UI
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Card: FaceFusion -->
-                <div class="card" id="card-facefusion">
-                    <div class="card-header">
-                        <div class="icon-title">
-                            <div class="app-icon-wrapper facefusion-accent">
-                                <i class="fa-solid fa-face-smile-wink"></i>
-                            </div>
-                            <div>
-                                <h3>FaceFusion</h3>
-                                <span class="accent-text">CoreML Face Swapping</span>
-                            </div>
-                        </div>
-                        <div class="status-indicator">
-                            <span class="status-dot stopped"></span>
-                            <span class="status-text">Offline</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-desc">Seamlessly replace the face in a target video using a reference image. Accelerates via CoreML.</p>
-                        <div class="port-info">
-                            <span class="badge"><i class="fa-solid fa-network-wired"></i> Port: 7860</span>
-                        </div>
-                    </div>
-                    <div class="card-actions">
-                        <button class="btn btn-primary start-btn" onclick="startService('facefusion')">
-                            <i class="fa-solid fa-play"></i> Start Service
-                        </button>
-                        <button class="btn btn-danger stop-btn hidden" onclick="stopService('facefusion')">
-                            <i class="fa-solid fa-stop"></i> Stop
-                        </button>
-                        <a href="http://127.0.0.1:7860" target="_blank" class="btn btn-outline open-btn hidden" id="open-facefusion">
-                            <i class="fa-solid fa-external-link"></i> Open UI
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Card: RVC -->
-                <div class="card" id="card-rvc">
-                    <div class="card-header">
-                        <div class="icon-title">
-                            <div class="app-icon-wrapper rvc-accent">
-                                <i class="fa-solid fa-microphone-lines"></i>
-                            </div>
-                            <div>
-                                <h3>RVC WebUI</h3>
-                                <span class="accent-text">Voice Conversion</span>
-                            </div>
-                        </div>
-                        <div class="status-indicator">
-                            <span class="status-dot stopped"></span>
-                            <span class="status-text">Offline</span>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-desc">Convert and clone singing or speaking voices locally on macOS using Apple MPS acceleration.</p>
-                        <div class="port-info">
-                            <span class="badge"><i class="fa-solid fa-network-wired"></i> Port: 7865</span>
-                        </div>
-                    </div>
-                    <div class="card-actions">
-                        <button class="btn btn-primary start-btn" onclick="startService('rvc')">
-                            <i class="fa-solid fa-play"></i> Start Service
-                        </button>
-                        <button class="btn btn-danger stop-btn hidden" onclick="stopService('rvc')">
-                            <i class="fa-solid fa-stop"></i> Stop
-                        </button>
-                        <a href="http://127.0.0.1:7865" target="_blank" class="btn btn-outline open-btn hidden" id="open-rvc">
-                            <i class="fa-solid fa-external-link"></i> Open UI
-                        </a>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Right Panel: Logs and Terminal -->
-            <section class="logs-section">
-                <div class="terminal-card">
-                    <div class="terminal-header">
-                        <div class="terminal-dots">
-                            <span class="dot red"></span>
-                            <span class="dot yellow"></span>
-                            <span class="dot green"></span>
-                        </div>
-                        <div class="terminal-selector">
-                            <button class="tab-btn active" onclick="switchLogTab('comfyui')">ComfyUI Logs</button>
-                            <button class="tab-btn" onclick="switchLogTab('facefusion')">FaceFusion Logs</button>
-                            <button class="tab-btn" onclick="switchLogTab('rvc')">RVC Logs</button>
-                        </div>
-                        <button class="clear-btn" onclick="clearTerminal()"><i class="fa-solid fa-trash-can"></i> Clear</button>
-                    </div>
-                    <div class="terminal-body" id="log-output">
-                        <!-- Terminal logs print here -->
-                        <div class="log-line system">[System] Select a service or start one to view real-time log output.</div>
-                    </div>
-                </div>
-            </section>
-        </main>
-
-        <!-- View 2: One-Click Drag & Drop Face Swap -->
-        <main class="swap-view hidden" id="view-swap">
+        <!-- Main View: AI Video Generator -->
+        <main class="swap-view" id="view-swap">
             <div class="swap-container">
                 <!-- Input Mode Toggle -->
                 <div class="input-mode-panel">
@@ -271,6 +125,21 @@
                             </button>
                             <button class="segment-btn" id="segment-mode-body" onclick="setSwapMode('body')">
                                 <i class="fa-solid fa-user-astronaut"></i> Whole Body (LivePortrait)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Gaze Mode Settings (LivePortrait Only) -->
+                    <div class="setting-item" id="setting-gaze-mode">
+                        <label class="setting-label">
+                            <i class="fa-solid fa-eye"></i> Eye Gaze / Expression Style
+                        </label>
+                        <div class="segment-control">
+                            <button class="segment-btn active" id="segment-gaze-steady" onclick="setGazeMode('steady')">
+                                <i class="fa-solid fa-video"></i> Steady (Looks at Camera)
+                            </button>
+                            <button class="segment-btn" id="segment-gaze-expressive" onclick="setGazeMode('expressive')">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Expressive (Looks around)
                             </button>
                         </div>
                     </div>
