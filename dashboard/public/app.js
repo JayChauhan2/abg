@@ -412,13 +412,36 @@ function setupDropzone(type, inputId, areaId, previewId) {
 
 function handleFileSelect(type, file, inputElement, previewElement) {
     if (type === 'source') {
-        if (!file.type.startsWith('image/')) {
-            alert('Please select an image file for the Portrait.');
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+        if (!isImage && !isVideo) {
+            alert('Please select an image or a video file.');
             return;
         }
         sourceFileObj = file;
         const img = previewElement.querySelector('img');
-        img.src = URL.createObjectURL(file);
+        const video = previewElement.querySelector('video');
+
+        if (isImage) {
+            if (video) {
+                video.classList.add('hidden');
+                video.src = '';
+            }
+            if (img) {
+                img.classList.remove('hidden');
+                img.src = URL.createObjectURL(file);
+            }
+        } else {
+            if (img) {
+                img.classList.add('hidden');
+                img.src = '';
+            }
+            if (video) {
+                video.classList.remove('hidden');
+                video.src = URL.createObjectURL(file);
+                video.play();
+            }
+        }
         previewElement.classList.remove('hidden');
     } else {
         if (!file.type.startsWith('video/')) {
@@ -440,12 +463,24 @@ function removeFile(type, event) {
     
     if (type === 'source') {
         sourceFileObj = null;
-        preview.querySelector('img').src = '';
+        const img = preview.querySelector('img');
+        const video = preview.querySelector('video');
+        if (img) {
+            img.src = '';
+            img.classList.add('hidden');
+        }
+        if (video) {
+            video.pause();
+            video.src = '';
+            video.classList.add('hidden');
+        }
     } else {
         targetFileObj = null;
         const video = preview.querySelector('video');
-        video.pause();
-        video.src = '';
+        if (video) {
+            video.pause();
+            video.src = '';
+        }
     }
     input.value = '';
     preview.classList.add('hidden');

@@ -343,8 +343,12 @@ app.post('/api/simple-swap', upload.fields([
 
         // Step 3: Base Target Video Resolution
         let baseTargetVideoPath = '';
-        if (sourcePath) {
-          // A. Custom girl image uploaded: Run LivePortrait to animate her head first
+        if (sourcePath && (sourcePath.toLowerCase().endsWith('.mp4') || sourcePath.toLowerCase().endsWith('.mov') || sourcePath.toLowerCase().endsWith('.webm') || sourcePath.toLowerCase().endsWith('.avi'))) {
+          // A. Custom video template uploaded: Use it directly for Lip Sync (Arcads.ai style)
+          pushLog(`[System] Real actor video uploaded. Using it directly as base template for lip sync...`);
+          baseTargetVideoPath = sourcePath;
+        } else if (sourcePath) {
+          // B. Custom portrait image uploaded: Run LivePortrait to animate her head first
           pushLog(`[LivePortrait] Custom portrait uploaded. Animating custom portrait to create base talking video...`);
           const lpTempDir = path.join(uploadsDir, `lp_base_${taskId}`);
           fs.mkdirSync(lpTempDir, { recursive: true });

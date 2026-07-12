@@ -56,14 +56,15 @@
                             <p id="source-card-desc">Upload the picture of the girl you want to use (or leave empty to use default cute AI girl)</p>
                         </div>
                         <div class="dropzone-area" id="area-source">
-                            <input type="file" id="input-source" accept="image/*" class="file-input">
+                            <input type="file" id="input-source" accept="image/*,video/*" class="file-input">
                             <div class="dropzone-content">
                                 <i class="fa-solid fa-cloud-arrow-up"></i>
                                 <p>Drag & drop or <span>browse</span></p>
-                                <span class="file-limits">Supported formats: JPG, PNG, WEBP</span>
+                                <span class="file-limits">Formats: JPG, PNG, WEBP, MP4, MOV</span>
                             </div>
                             <div class="preview-area hidden" id="preview-source">
-                                <img src="" alt="Source Preview">
+                                <img src="" alt="Source Preview" class="hidden">
+                                <video src="" muted loop class="hidden" style="max-height: 100%; max-width: 100%; object-fit: contain; border-radius: 8px;"></video>
                                 <button class="remove-btn" onclick="removeFile('source', event)"><i class="fa-solid fa-times"></i></button>
                             </div>
                         </div>
