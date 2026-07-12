@@ -380,7 +380,7 @@ app.post('/api/simple-swap', upload.fields([
         // Step 5: FaceFusion Lip Syncer (Lip Sync looped video to speech audio)
         const processors = faceEnhance ? 'lip_syncer face_enhancer' : 'lip_syncer';
         pushLog(`[FaceFusion] Starting lip sync CLI (processors: ${processors})...`);
-        const ffCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -t "${loopedVideoPath}" -s "${speechAudioPath}" -o "${finalOutputPath}" --processors ${processors} --execution-providers coreml`;
+        const ffCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -t "${loopedVideoPath}" -s "${speechAudioPath}" -o "${finalOutputPath}" --processors ${processors} --execution-providers coreml --video-memory-strategy strict`;
         await runShellCommand(ffCmd, pushLog);
         pushLog(`[FaceFusion] Lip sync completed successfully.`);
 
@@ -433,7 +433,7 @@ app.post('/api/simple-swap', upload.fields([
           const processors = faceEnhance ? 'face_swapper face_enhancer' : 'face_swapper';
           videoSilentPath = path.join(uploadsDir, `ff_out_${taskId}.mp4`);
           pushLog(`[FaceFusion] Starting face swap CLI (processors: ${processors})...`);
-          const cmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -s "${sourcePath}" -t "${targetPath}" -o "${videoSilentPath}" --processors ${processors} --execution-providers coreml`;
+          const cmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -s "${sourcePath}" -t "${targetPath}" -o "${videoSilentPath}" --processors ${processors} --execution-providers coreml --video-memory-strategy strict`;
           await runShellCommand(cmd, pushLog);
           pushLog(`[FaceFusion] Face swap completed.`);
         } else {
@@ -458,7 +458,7 @@ app.post('/api/simple-swap', upload.fields([
           if (faceEnhance) {
             pushLog(`[FaceFusion] Running face enhancement post-processing on animated video...`);
             const enhancedPath = path.join(lpTempDir, `enhanced_${cleanVideo}`);
-            const enhanceCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -t "${videoSilentPath}" -o "${enhancedPath}" --processors face_enhancer --execution-providers coreml`;
+            const enhanceCmd = `source /opt/homebrew/Caskroom/miniforge/base/etc/profile.d/conda.sh && conda activate facefusion && cd /Users/jaychauhan/ai-video-tools/facefusion && python facefusion.py headless-run -t "${videoSilentPath}" -o "${enhancedPath}" --processors face_enhancer --execution-providers coreml --video-memory-strategy strict`;
             await runShellCommand(enhanceCmd, pushLog);
             videoSilentPath = enhancedPath;
             pushLog(`[FaceFusion] Face enhancement post-processing completed.`);
