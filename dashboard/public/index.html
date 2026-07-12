@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Video Control Center</title>
+    <title>AI Video Generator</title>
     <!-- Google Fonts: Outfit & Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,42 +25,29 @@
                     <h1>AI Video <span>Generator</span></h1>
                 </div>
             </div>
-            <p class="subtitle">Generate realistic talking-head videos locally on your Mac using text scripts or reference videos.</p>
+            <p class="subtitle">Generate realistic talking-head videos locally on your Mac using text scripts.</p>
         </header>
 
         <!-- Main View: AI Video Generator -->
         <main class="swap-view" id="view-swap">
             <div class="swap-container">
-                <!-- Input Mode Toggle -->
-                <div class="input-mode-panel">
-                    <label class="setting-label">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> Input Source
-                    </label>
-                    <div class="segment-control input-mode-control">
-                        <button class="segment-btn active" id="btn-input-video" onclick="setInputType('video')">
-                            <i class="fa-solid fa-video"></i> Video Reference
-                        </button>
-                        <button class="segment-btn" id="btn-input-script" onclick="setInputType('script')">
-                            <i class="fa-solid fa-pen-nib"></i> Text Script (TTS)
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Dropzone Section -->
-                <div class="dropzone-grid">
-                    <!-- Dropzone 1: Source Face -->
-                    <div class="dropzone-card" id="dropzone-source">
+                
+                <!-- Simple Input Panels (Vertical Stack) -->
+                <div class="simple-form-stack">
+                    
+                    <!-- Item 1: Upload Video -->
+                    <div class="dropzone-card" id="dropzone-source" style="margin-bottom: 20px;">
                         <div class="dropzone-header">
-                            <i class="fa-solid fa-image-portrait"></i>
-                            <h3 id="source-card-title">Source Face (Girl Image)</h3>
-                            <p id="source-card-desc">Upload the picture of the girl you want to use (or leave empty to use default cute AI girl)</p>
+                            <i class="fa-solid fa-video"></i>
+                            <h3>Actor Reference Video</h3>
+                            <p>Upload a video of a real actor (from TikTok/Pexels) to sync with the script</p>
                         </div>
-                        <div class="dropzone-area" id="area-source">
-                            <input type="file" id="input-source" accept="image/*,video/*" class="file-input">
+                        <div class="dropzone-area" id="area-source" style="height: 180px;">
+                            <input type="file" id="input-source" accept="video/*,image/*" class="file-input">
                             <div class="dropzone-content">
                                 <i class="fa-solid fa-cloud-arrow-up"></i>
                                 <p>Drag & drop or <span>browse</span></p>
-                                <span class="file-limits">Formats: JPG, PNG, WEBP, MP4, MOV</span>
+                                <span class="file-limits">Supported formats: MP4, MOV, JPG, PNG</span>
                             </div>
                             <div class="preview-area hidden" id="preview-source">
                                 <img src="" alt="Source Preview" class="hidden">
@@ -68,125 +55,21 @@
                                 <button class="remove-btn" onclick="removeFile('source', event)"><i class="fa-solid fa-times"></i></button>
                             </div>
                         </div>
-                        
-                        <!-- AI Avatar Prompt Input -->
-                        <div class="avatar-prompt-container hidden" id="avatar-prompt-container" style="margin-top: 15px; text-align: left;">
-                            <label class="setting-label" style="font-size: 0.85rem; margin-bottom: 6px; display: block; color: var(--text-muted);">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i> Or Generate Face with AI Prompt
-                            </label>
-                            <input type="text" id="input-avatar-prompt" class="prompt-input" placeholder="e.g. A gorgeous 22yo girl with red hair, smiling at camera, photorealistic, 8k" style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: var(--text-main); font-size: 0.85rem; outline: none; transition: var(--transition-smooth);">
-                        </div>
                     </div>
 
-                    <!-- Dropzone 2: Target Video -->
-                    <div class="dropzone-card" id="dropzone-target">
-                        <div class="dropzone-header">
-                            <i class="fa-solid fa-video"></i>
-                            <h3>Target Video (Self-Recorded)</h3>
-                            <p>Upload the video of yourself speaking</p>
-                        </div>
-                        <div class="dropzone-area" id="area-target">
-                            <input type="file" id="input-target" accept="video/*" class="file-input">
-                            <div class="dropzone-content">
-                                <i class="fa-solid fa-cloud-arrow-up"></i>
-                                <p>Drag & drop or <span>browse</span></p>
-                                <span class="file-limits">Supported formats: MP4, MOV, WEBM</span>
-                            </div>
-                            <div class="preview-area hidden" id="preview-target">
-                                <video src="" muted loop></video>
-                                <button class="remove-btn" onclick="removeFile('target', event)"><i class="fa-solid fa-times"></i></button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Card 3: Speech Script Input (Hidden by default) -->
-                    <div class="dropzone-card hidden" id="card-script">
+                    <!-- Item 2: Enter Script -->
+                    <div class="dropzone-card" id="card-script" style="margin-bottom: 20px;">
                         <div class="dropzone-header">
                             <i class="fa-solid fa-file-signature"></i>
                             <h3>Speech Script</h3>
-                            <p>Type the text script you want the AI girl to say</p>
+                            <p>Type the text script you want the actor to say</p>
                         </div>
-                        <div class="script-input-area">
-                            <textarea id="input-script" class="script-textarea" placeholder="Enter script here... (e.g., Hi there! Welcome to my profile. Today I am speaking to you entirely from a local AI model on this Mac! How does it sound?)"></textarea>
-                            <span class="file-limits">Supported: English text. Maximum 500 characters.</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Settings Panel -->
-                <div class="settings-panel">
-                    <!-- Swap Mode Settings -->
-                    <div class="setting-item">
-                        <label class="setting-label">
-                            <i class="fa-solid fa-arrows-spin"></i> Processing Mode
-                        </label>
-                        <div class="segment-control">
-                            <button class="segment-btn active" id="segment-mode-face" onclick="setSwapMode('face')">
-                                <i class="fa-solid fa-user-ninja"></i> Just Face (FaceFusion)
-                            </button>
-                            <button class="segment-btn" id="segment-mode-body" onclick="setSwapMode('body')">
-                                <i class="fa-solid fa-user-astronaut"></i> Whole Body (LivePortrait)
-                            </button>
+                        <div class="script-input-area" style="padding: 15px;">
+                            <textarea id="input-script" class="script-textarea" placeholder="Enter script here... (e.g., Hi there! Today I am speaking to you entirely from a local AI model on this Mac! How does it look?)" style="min-height: 120px;"></textarea>
+                            <span class="file-limits">Maximum 500 characters. English only.</span>
                         </div>
                     </div>
 
-                    <!-- Gaze Mode Settings (LivePortrait Only) -->
-                    <div class="setting-item" id="setting-gaze-mode">
-                        <label class="setting-label">
-                            <i class="fa-solid fa-eye"></i> Eye Gaze / Expression Style
-                        </label>
-                        <div class="segment-control">
-                            <button class="segment-btn active" id="segment-gaze-steady" onclick="setGazeMode('steady')">
-                                <i class="fa-solid fa-video"></i> Steady (Looks at Camera)
-                            </button>
-                            <button class="segment-btn" id="segment-gaze-expressive" onclick="setGazeMode('expressive')">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i> Expressive (Looks around)
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- RVC Settings -->
-                    <div class="setting-item">
-                        <label class="setting-label">
-                            <i class="fa-solid fa-microphone-lines"></i> RVC Voice Conversion
-                        </label>
-                        <div class="voice-selector-wrapper">
-                            <select id="select-voice-model" class="dropdown-select">
-                                <option value="">-- Keep Original Audio --</option>
-                            </select>
-                            <button class="btn-refresh" onclick="loadVoiceModels()" title="Refresh voice models">
-                                <i class="fa-solid fa-rotate"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Face Enhancement Settings -->
-                    <div class="setting-item">
-                        <label class="setting-label">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> Face Enhancement (HD)
-                        </label>
-                        <div class="switch-wrapper">
-                            <label class="switch-container">
-                                <input type="checkbox" id="toggle-face-enhance" checked>
-                                <span class="switch-slider"></span>
-                            </label>
-                            <span class="switch-status-text" id="face-enhance-status">Enabled (GFPGAN)</span>
-                        </div>
-                    </div>
-
-                    <!-- Auto-Subtitles Settings -->
-                    <div class="setting-item">
-                        <label class="setting-label">
-                            <i class="fa-solid fa-closed-captioning"></i> Auto-Subtitles
-                        </label>
-                        <div class="switch-wrapper">
-                            <label class="switch-container">
-                                <input type="checkbox" id="toggle-burn-subtitles" checked>
-                                <span class="switch-slider"></span>
-                            </label>
-                            <span class="switch-status-text" id="burn-subtitles-status">Enabled (Burned)</span>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Generate Action -->
@@ -200,8 +83,8 @@
                 <div class="processing-panel hidden" id="processing-panel">
                     <div class="spinner-wrapper">
                         <div class="processing-spinner"></div>
-                        <h4 id="processing-status-title">Processing Face Swap...</h4>
-                        <p class="processing-desc">Running FaceFusion headless CLI. This might take a few moments.</p>
+                        <h4 id="processing-status-title">Generating AI Video...</h4>
+                        <p class="processing-desc">Running local speech synthesis and lip sync models on Apple Silicon.</p>
                     </div>
                     
                     <!-- Execution Logs -->
@@ -230,7 +113,7 @@
                                 <i class="fa-solid fa-download"></i> Download Video
                             </a>
                             <button onclick="resetSwapForm()" class="btn btn-outline">
-                                <i class="fa-solid fa-rotate-left"></i> Swap Another Video
+                                <i class="fa-solid fa-rotate-left"></i> Create Another Video
                             </button>
                         </div>
                     </div>
@@ -238,21 +121,9 @@
             </div>
         </main>
         
-        <!-- Workflow Guide Footer -->
+        <!-- Footer -->
         <footer>
-            <div class="workflow-strip">
-                <h4><i class="fa-solid fa-circle-info"></i> Pipeline Overview:</h4>
-                <div class="workflow-steps">
-                    <span class="step"><span>1</span> Record Ref Video</span>
-                    <i class="fa-solid fa-arrow-right"></i>
-                    <span class="step"><span>2</span> Animate Photo (ComfyUI)</span>
-                    <i class="fa-solid fa-arrow-right"></i>
-                    <span class="step"><span>3</span> Convert Voice (RVC)</span>
-                    <i class="fa-solid fa-arrow-right"></i>
-                    <span class="step"><span>4</span> Merge Video + Audio</span>
-                </div>
-            </div>
-            <p class="copyright">&copy; 2026 AI Video Control Center. Powered by Apple Silicon.</p>
+            <p class="copyright">&copy; 2026 AI Video Generator. Powered by Apple Silicon.</p>
         </footer>
     </div>
 
